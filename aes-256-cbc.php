@@ -1,30 +1,55 @@
 <?php
-function encrypt($string, $secret_iv, $public_key)
+class Cipher
 {
-    $encrypt_method = "AES-256-CBC";
-    $key = hash('sha256', $public_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
+    private $encrypt_method = "AES-256-CBC";
+    private $cipher_key;
 
-    $output = openssl_encrypt($string, $encrypt_method, $key, 0, $iv);
-    $output =  base64_encode($output);
-    return $output;
+    function __construct($encrypt_key = false)
+    {
+        if ($cipher_key = hex2bin($encrypt_key)) {
+            $this->cipher_key = $cipher_key;
+        } else {
+            echo "Please insert encryption key";
+        }
+    }
+
+    function encrypt($message)
+    {
+        $iv_size = openssl_cipher_iv_length($this->encrypt_method);
+        $random_key = hash('sha256', $this->cipher_key);
+        $new_iv = substr(hash('sha256', $random_key), 0, $iv_size);
+
+        if ($encrypted = base64_encode(openssl_encrypt($message, $this->encrypt_method, $this->cipher_key, 0, $new_iv))) {
+            return $new_iv . ':' . $encrypted;
+        }
+        return false;
+    }
+
+    function decrypt($message)
+    {
+        $arr = explode(":", $message);
+        $iv = $arr[0];
+        $key = $arr[1];
+
+        if ($decrypt_message = openssl_decrypt(base64_decode($key), $this->encrypt_method, $this->cipher_key, 0, $iv)) {
+            return $decrypt_message;
+        }
+        return false;
+    }
 }
 
-function decrypt($string, $secret_iv, $public_key)
-{
-    $encrypt_method = "AES-256-CBC";
-    $key = hash('sha256', $public_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
+// Encrypt Ussage
 
-    $output = openssl_decrypt(base64_decode($string), $encrypt_method, $key, 0, $iv);
-    return $output;
-}
-$message = "Hello";
-$public_key = "user_1";
-$secret_iv = "132";
+$message = "Hello AES-256";
+$encrypt_key = bin2hex(substr(hash('sha256', random_bytes(16)), 0, 16));
 
-$encrypt_str = encrypt($message, $secret_iv, $public_key);
-echo $encrypt_str . '\n';
+$cipher = new Cipher($encrypt_key);
+// Encrypt
+$encrypted_message = $cipher->encrypt($message);
+echo $encrypted_message;
 
-$decrypt_str = decrypt($encrypt_str, $secret_iv, $public_key);
-echo $decrypt_str;
+echo "\n";
+
+// Decrypt
+$decrypted_message = $cipher->decrypt($encrypted_message);
+echo $decrypted_message;
